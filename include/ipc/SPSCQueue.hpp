@@ -51,13 +51,11 @@ public:
     }
 
 private:
-    // PADDING & CACHE-LINE ALIGNMENT
-    // ==============================
-    // A modern CPU L1 Cache Line is exactly 64 bytes.
-    // If head_ and tail_ sit on the same cache line, Core 0 (Producer) and Core 1 (Consumer)
-    // will constantly cause Cache Coherency Invalidations (False Sharing) every time they update
-    // their respective index. This destroys performance.
-    // We enforce a strict alignas(64) boundary on both integer atomics.
+    // False sharing notes:
+    // L1 Cache Line typically 64 B
+    // if head and tail on the same cache line: producer (core 0) and consumer (core 1) cause **False Sharing** = cache coherency invalidaitons
+    // Using alignas(64) for boundary on both integer atomics
+    
     alignas(64) std::atomic<size_t> head_;
     alignas(64) std::atomic<size_t> tail_;
 
