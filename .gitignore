@@ -1,3 +1,16 @@
-DevLogs/
+# Build output
 build/
+DevLogs/
+
+# Hardware simulation artifacts (Icarus Verilog output)
+*.vvp
+mdp3_sim
+hardware/**/*.vcd
+hardware/**/*.out
+
+# Local tooling / assistant config (never publish)
+.claude/
+CLAUDE.md
+
+# OS cruft
 .DS_Store

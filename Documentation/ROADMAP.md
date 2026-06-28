@@ -12,8 +12,8 @@ This roadmap details the end-to-end development of a pure systems, hardware-soft
 **Goal:** Mimic a 10GbE network card's logic using the Basys 3 FPGA to handle deterministic data parsing.
 *   **L2 Market Data Ingestion:** Write SystemVerilog modules to parse simulated CME MDP 3.0 (Market Data Platform 3.0) binary protocol headers for energy futures.
 *   **Systolic Array Limit Order Book (LOB):** Abandon standard arrays or BRAM hash maps. Implement a hardware Systolic Array (similar to Google TPUs) on the FPGA to maintain a fully sorted LOB and calculate the weighted mid-price in true $O(1)$ hardware clock cycles, regardless of book depth.
-*   **Kernel-Bypass Networking:** Obliterate the UART bottleneck. Wire a high-speed interface (e.g., Ethernet PHY or high-speed USB 3.0 FIFO via PMOD ports) to stream data.
 *   **User-Space Polling (Zero OS Interrupts):** Write a custom C++ driver that polls a memory-mapped ring buffer directly, completely bypassing the OS kernel network stack and saving microscopic context-switching overhead.
+*   **Kernel-Bypass Networking** _(Deferred — Phase 2 extra step, currently limited by hardware; will address soon)_**:** Obliterate the UART bottleneck. Wire a high-speed interface (e.g., Ethernet PHY or high-speed USB 3.0 FIFO via PMOD ports) to stream data.
 
 ## Phase 3: Asynchronous Market Data Ingestion (C++)
 **Goal:** Continuously ingest institutional-grade data and prepare it for inference without blocking the critical trading path.
