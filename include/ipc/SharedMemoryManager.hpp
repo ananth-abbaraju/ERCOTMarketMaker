@@ -7,6 +7,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <iostream>
+#include <cerrno>
+#include <new>
+#include <chrono>
+#include <thread>
 
 namespace ipc {
 
@@ -15,25 +19,47 @@ class SharedMemoryManager {
 public:
     // is_creator determines if this process should create and initialize the memory (Producer)
     // or just attach to an existing memory block (Consumer).
-    SharedMemoryManager(const std::string& name, bool is_creator) 
-        : name_(name), is_creator_(is_creator), ptr_(nullptr) {
-        
-        int oflag = O_RDWR;
-        if (is_creator_) {
-            oflag |= O_CREAT | O_TRUNC; // Create new, truncate if exists
-        }
+    SharedMemoryManager(const std::string& name, bool is_creator)
+        : name_(name), is_creator_(is_creator), fd_(-1), ptr_(nullptr) {
 
-        // 1. Open the shared memory object
-        fd_ = shm_open(name_.c_str(), oflag, 0666);
-        if (fd_ == -1) {
-            throw std::runtime_error("shm_open failed");
-        }
-
-        // 2. Set the size of the shared memory object
         if (is_creator_) {
+            // 1a. Create (truncating any stale segment) and size the object up front.
+            fd_ = shm_open(name_.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0666);
+            if (fd_ == -1) {
+                throw std::runtime_error("shm_open (create) failed");
+            }
             if (ftruncate(fd_, sizeof(T)) == -1) {
                 close(fd_);
                 throw std::runtime_error("ftruncate failed");
+            }
+        } else {
+            // 1b. Attach mode. The creator may not have run yet, and even once the
+            // segment exists it may not be sized (ftruncate) before we map it --
+            // mmap'ing a zero-length object and then touching it raises SIGBUS.
+            // So poll until the segment both EXISTS and is large enough, bounded by
+            // a timeout. This is startup-only (off the hot path), so a tiny sleep
+            // between attempts is fine and avoids pegging a core.
+            const auto deadline =
+                std::chrono::steady_clock::now() + std::chrono::seconds(5);
+
+            while ((fd_ = shm_open(name_.c_str(), O_RDWR, 0666)) == -1) {
+                if (errno != ENOENT ||
+                    std::chrono::steady_clock::now() > deadline) {
+                    throw std::runtime_error(
+                        "shm_open (attach) timed out waiting for the producer");
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(200));
+            }
+
+            struct stat st{};
+            while (fstat(fd_, &st) != 0 ||
+                   static_cast<size_t>(st.st_size) < sizeof(T)) {
+                if (std::chrono::steady_clock::now() > deadline) {
+                    close(fd_);
+                    throw std::runtime_error(
+                        "attach timed out waiting for the segment to be sized");
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(200));
             }
         }
 

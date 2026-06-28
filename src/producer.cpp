@@ -1,26 +1,34 @@
 #include "ipc/SharedMemoryManager.hpp"
 #include "ipc/SPSCQueue.hpp"
 #include "ipc/ErcotTelemetry.hpp"
+#include "ipc/HandshakeRegion.hpp"
 
 #include <iostream>
 #include <chrono>
-#include <thread>
 
-// An arbitrary capacity for the queue (power of 2 is good)
-constexpr size_t QUEUE_CAPACITY = 1024 * 64; 
+// Capacity MUST be a power of two (see SPSCQueue static_assert).
+constexpr size_t QUEUE_CAPACITY = 1024 * 64;
 
 using ErcotQueue = ipc::SPSCQueue<ipc::ErcotTelemetry, QUEUE_CAPACITY>;
+using Region = ipc::HandshakeRegion<ErcotQueue>;
 
 int main() {
     std::cout << "[Producer] Initializing Shared Memory...\n";
 
-    // The producer acts as the "creator" of the shared memory object
-    ipc::SharedMemoryManager<ErcotQueue> shm("/ercot_queue_shm", true);
-    ErcotQueue* queue = shm.get();
+    // The producer acts as the "creator" of the shared memory object.
+    ipc::SharedMemoryManager<Region> shm("/ercot_queue_shm", true);
+    Region* region = shm.get();
+    ErcotQueue* queue = &region->payload;
 
-    std::cout << "[Producer] Ready to stream telemetry data.\n";
-    std::cout << "[Producer] Waiting 3 seconds for the consumer to attach...\n";
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    // Handshake: announce the region is initialized, then wait for the consumer to
+    // attach and signal it is ready. This replaces the old fixed 3-second sleep, so
+    // the two processes can start in any order and we never stream into the void.
+    region->producer_ready.store(1, std::memory_order_release);
+    std::cout << "[Producer] Region ready. Waiting for consumer to attach...\n";
+    while (region->consumer_ready.load(std::memory_order_acquire) == 0) {
+        // Startup-only spin (off the hot path): block until the consumer is draining.
+    }
+    std::cout << "[Producer] Consumer attached. Streaming telemetry.\n";
 
     const int TOTAL_TICKS = 5'000'000;
     double dummy_frequency = 60.0;

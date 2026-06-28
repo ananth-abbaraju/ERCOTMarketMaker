@@ -10,13 +10,20 @@ namespace ipc {
 // A Single-Producer Single-Consumer (SPSC) Lock-Free Circular Buffer.
 template<typename T, size_t Capacity>
 class SPSCQueue {
+    // Capacity must be a power of two so the wrap-around can use a cheap bitmask
+    // (& MASK) instead of an integer division (% Capacity). On the hot path a div
+    // is tens of cycles; the mask is one.
+    static_assert(Capacity > 1, "Capacity must be greater than 1");
+    static_assert((Capacity & (Capacity - 1)) == 0, "Capacity must be a power of two");
+    static constexpr size_t MASK = Capacity - 1;
+
 public:
     SPSCQueue() : head_(0), tail_(0) {}
 
     // Called strictly by the Producer Thread/Process
     bool push(const T& item) {
         const size_t current_tail = tail_.load(std::memory_order_relaxed);
-        const size_t next_tail = (current_tail + 1) % Capacity;
+        const size_t next_tail = (current_tail + 1) & MASK;
 
         // Consumer modifies head_. We must use memory_order_acquire 
         // to guarantee all writes by the consumer are visible before proceeding.
@@ -46,7 +53,7 @@ public:
         
         // memory_order_release guarantees we signal the read completion
         // only after the struct is truly popped from the buffer.
-        head_.store((current_head + 1) % Capacity, std::memory_order_release);
+        head_.store((current_head + 1) & MASK, std::memory_order_release);
         return item;
     }
 
