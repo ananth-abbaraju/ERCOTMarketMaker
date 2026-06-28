@@ -8,6 +8,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Compiler flags for maximum performance and strict warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wextra -pthread -march=native")
 
+# We build in strict-standard mode (-std=c++20), which sets __STRICT_ANSI__ and hides
+# BSD/Darwin extensions the UART bridge relies on (cfmakeraw, posix_openpt, the Mach
+# thread-policy QoS calls). Re-expose them on Apple.
+if (APPLE)
+    add_compile_definitions(_DARWIN_C_SOURCE)
+endif()
+
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
@@ -18,9 +25,16 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     list(APPEND IPC_LIBS rt)
 endif()
 
-# We will add executable targets for Producer and Consumer next!
+# Phase 1: lock-free IPC demo (grid telemetry).
 add_executable(producer src/producer.cpp)
 target_link_libraries(producer PRIVATE ${IPC_LIBS})
 
 add_executable(consumer src/consumer.cpp)
 target_link_libraries(consumer PRIVATE ${IPC_LIBS})
+
+# Phase 2.5: FPGA <-> Mac UART bridge + dedicated market-data queue.
+add_executable(mac_uart_bridge src/mac_uart_bridge.cpp)
+target_link_libraries(mac_uart_bridge PRIVATE ${IPC_LIBS})
+
+add_executable(md_consumer src/md_consumer.cpp)
+target_link_libraries(md_consumer PRIVATE ${IPC_LIBS})
