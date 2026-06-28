@@ -38,3 +38,10 @@ target_link_libraries(mac_uart_bridge PRIVATE ${IPC_LIBS})
 
 add_executable(md_consumer src/md_consumer.cpp)
 target_link_libraries(md_consumer PRIVATE ${IPC_LIBS})
+
+# Host-side end-to-end test of the bridge over a pseudo-terminal (no FPGA required).
+enable_testing()
+add_executable(uart_bridge_pty_test tests/uart_bridge_pty_test.cpp)
+target_link_libraries(uart_bridge_pty_test PRIVATE ${IPC_LIBS})
+add_test(NAME uart_bridge_pty
+         COMMAND uart_bridge_pty_test $<TARGET_FILE:mac_uart_bridge>)
