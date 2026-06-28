@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Simulation runner for the hardware designs (Icarus Verilog).
-# Usage: run_sim.sh [mdp3|lob_pe|lob_array|uart|all]   (default: all)
+# Usage: run_sim.sh [mdp3|lob_pe|lob_array|uart|payload|all]   (default: all)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -26,6 +26,7 @@ MDP3_RTL="hardware/mdp3_parser.sv"
 LOB_PE_RTL="hardware/lob_pe.sv"
 LOB_ARRAY_RTL="hardware/lob_array.sv hardware/lob_pe.sv"
 UART_RTL="hardware/uart_rx.sv hardware/uart_tx.sv"
+PAYLOAD_RTL="hardware/mdp3_parser.sv hardware/mdp3_payload_decoder.sv"
 
 target="${1:-all}"
 case "$target" in
@@ -33,14 +34,16 @@ case "$target" in
     lob_pe)    run_one lob_pe    "$LOB_PE_RTL"    hardware/tb_lob_pe.sv ;;
     lob_array) run_one lob_array "$LOB_ARRAY_RTL" hardware/tb_lob_array.sv ;;
     uart)      run_one uart      "$UART_RTL"      hardware/tb_uart_loopback.sv ;;
+    payload)   run_one payload   "$PAYLOAD_RTL"   hardware/tb_mdp3_payload_decoder.sv ;;
     all)
         run_one mdp3      "$MDP3_RTL"      hardware/tb_mdp3_parser.sv
         run_one lob_pe    "$LOB_PE_RTL"    hardware/tb_lob_pe.sv
         run_one lob_array "$LOB_ARRAY_RTL" hardware/tb_lob_array.sv
         run_one uart      "$UART_RTL"      hardware/tb_uart_loopback.sv
+        run_one payload   "$PAYLOAD_RTL"   hardware/tb_mdp3_payload_decoder.sv
         ;;
     *)
-        echo "error: unknown target '$target' (expected: mdp3 | lob_pe | lob_array | uart | all)" >&2
+        echo "error: unknown target '$target' (expected: mdp3 | lob_pe | lob_array | uart | payload | all)" >&2
         exit 1
         ;;
 esac
