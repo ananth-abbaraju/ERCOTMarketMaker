@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Simulation runner for the hardware designs (Icarus Verilog).
-# Usage: run_sim.sh [mdp3|all]   (default: all)
+# Usage: run_sim.sh [mdp3|lob_pe|all]   (default: all)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -23,10 +23,14 @@ run_one() {
 
 target="${1:-all}"
 case "$target" in
-    mdp3) run_one mdp3 hardware/mdp3_parser.sv hardware/tb_mdp3_parser.sv ;;
-    all)  run_one mdp3 hardware/mdp3_parser.sv hardware/tb_mdp3_parser.sv ;;
+    mdp3)   run_one mdp3   hardware/mdp3_parser.sv hardware/tb_mdp3_parser.sv ;;
+    lob_pe) run_one lob_pe hardware/lob_pe.sv      hardware/tb_lob_pe.sv ;;
+    all)
+        run_one mdp3   hardware/mdp3_parser.sv hardware/tb_mdp3_parser.sv
+        run_one lob_pe hardware/lob_pe.sv      hardware/tb_lob_pe.sv
+        ;;
     *)
-        echo "error: unknown target '$target' (expected: mdp3 | all)" >&2
+        echo "error: unknown target '$target' (expected: mdp3 | lob_pe | all)" >&2
         exit 1
         ;;
 esac
