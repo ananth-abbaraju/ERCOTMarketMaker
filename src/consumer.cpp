@@ -1,16 +1,14 @@
 #include "ipc/SharedMemoryManager.hpp"
-#include "ipc/SPSCQueue.hpp"
-#include "ipc/ErcotTelemetry.hpp"
-#include "ipc/HandshakeRegion.hpp"
+#include "ipc/ErcotTelemetryChannel.hpp"
 
 #include <iostream>
 #include <chrono>
 #include <limits>
 
-constexpr size_t QUEUE_CAPACITY = 1024 * 64;
-
-using ErcotQueue = ipc::SPSCQueue<ipc::ErcotTelemetry, QUEUE_CAPACITY>;
-using Region = ipc::HandshakeRegion<ErcotQueue>;
+// Phase 1 benchmark consumer. Uses the shared channel definitions (see also the live
+// ercot_consumer, which drains the same raw queue plus the normalized feature channel).
+using ipc::ErcotQueue;
+using Region = ipc::ErcotRegion;
 
 int main() {
     std::cout << "[Consumer] Attaching to Shared Memory...\n";
@@ -19,7 +17,7 @@ int main() {
     // nothing). The manager now waits for the segment to exist and be sized, so the
     // consumer may even be launched before the producer.
     try {
-        ipc::SharedMemoryManager<Region> shm("/ercot_queue_shm", false);
+        ipc::SharedMemoryManager<Region> shm(ipc::ERCOT_SHM_NAME, false);
         Region* region = shm.get();
         ErcotQueue* queue = &region->payload;
 
