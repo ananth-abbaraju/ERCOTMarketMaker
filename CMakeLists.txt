@@ -25,6 +25,16 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     list(APPEND IPC_LIBS rt)
 endif()
 
+# simdjson -- SIMD-accelerated On-Demand JSON parsing of the ERCOT payloads. Pulled and
+# built via FetchContent (needs network on first configure).
+include(FetchContent)
+FetchContent_Declare(
+    simdjson
+    GIT_REPOSITORY https://github.com/simdjson/simdjson.git
+    GIT_TAG        v4.6.4
+)
+FetchContent_MakeAvailable(simdjson)
+
 # Phase 1: lock-free IPC demo (grid telemetry).
 add_executable(producer src/producer.cpp)
 target_link_libraries(producer PRIVATE ${IPC_LIBS})
@@ -45,3 +55,8 @@ add_executable(uart_bridge_pty_test tests/uart_bridge_pty_test.cpp)
 target_link_libraries(uart_bridge_pty_test PRIVATE ${IPC_LIBS})
 add_test(NAME uart_bridge_pty
          COMMAND uart_bridge_pty_test $<TARGET_FILE:mac_uart_bridge>)
+
+# Offline (no-network) test of the simdjson parsers and the NEON normalizer.
+add_executable(ercot_parse_test tests/ercot_parse_test.cpp)
+target_link_libraries(ercot_parse_test PRIVATE ${IPC_LIBS} simdjson::simdjson)
+add_test(NAME ercot_parse COMMAND ercot_parse_test)
