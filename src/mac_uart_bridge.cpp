@@ -15,6 +15,7 @@
 #include "ipc/SharedMemoryManager.hpp"
 #include "ipc/MarketDataChannel.hpp"
 #include "ipc/UartFraming.hpp"
+#include "util/ThreadAffinity.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -32,15 +33,9 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include <pthread.h>
-#if defined(__APPLE__)
-#  include <mach/mach.h>
-#  include <mach/thread_policy.h>
-#else
-#  include <sched.h>
-#endif
-
 namespace {
+
+using util::pin_thread;  // best-effort core pinning (see util/ThreadAffinity.hpp)
 
 std::atomic<bool> g_running{true};
 
@@ -49,25 +44,6 @@ void on_signal(int) { g_running.store(false, std::memory_order_relaxed); }
 std::uint64_t now_ns() {
     return std::uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::high_resolution_clock::now().time_since_epoch()).count());
-}
-
-// Best-effort core pinning. macOS (esp. Apple Silicon) has no real CPU affinity API --
-// THREAD_AFFINITY_POLICY is only an L2-sharing hint and is ignored on the SoCs -- so we
-// also raise QoS to USER_INTERACTIVE to keep the thread on a performance core. On Linux
-// this is a hard affinity set.
-void pin_thread(int tag) {
-#if defined(__APPLE__)
-    pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
-    thread_affinity_policy_data_t pol{ tag };
-    thread_policy_set(pthread_mach_thread_np(pthread_self()),
-                      THREAD_AFFINITY_POLICY, reinterpret_cast<thread_policy_t>(&pol),
-                      THREAD_AFFINITY_POLICY_COUNT);
-#else
-    cpu_set_t set;
-    CPU_ZERO(&set);
-    CPU_SET(tag, &set);
-    pthread_setaffinity_np(pthread_self(), sizeof(set), &set);
-#endif
 }
 
 // Open the serial port raw + non-blocking at 115200 8N1, no flow control.
