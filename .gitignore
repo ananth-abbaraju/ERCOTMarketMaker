@@ -14,3 +14,7 @@ CLAUDE.md
 
 # OS cruft
 .DS_Store
+
+# Local-only documentation (only the ADR log is published)
+Documentation/*
+!Documentation/ARCHITECTURE_NOTES.md
